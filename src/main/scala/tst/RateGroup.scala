@@ -1,4 +1,4 @@
-package cabin
+package tst
 
 object RateGroup {
 
@@ -28,7 +28,7 @@ object RateGroup {
 
   //  The problem we’ll be focusing on for this exercise will be finding the best price for a particular rate group.
 
-  //  Cabin Price: The price for a specific cabin on a specific cruise. All cabin prices will have a single rate attached.
+  //  Cabin Price: The price for a specific tst on a specific cruise. All tst prices will have a single rate attached.
   case class CabinPrice(
      cabinCode: String,
      rateCode: String,

@@ -7,6 +7,7 @@ ThisBuild / scalaVersion := "2.13.14"
 lazy val root = (project in file("."))
   .settings(
     name := "ptst",
+    libraryDependencies += "org.typelevel" %% "cats-core" % "2.9.0",
     libraryDependencies += "org.scalactic" %% "scalactic" % "3.2.19",
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.19" % "test"
   )

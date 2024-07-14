@@ -1,6 +1,6 @@
-package cabin
+package tst
 
-import cabin.RateGroup.{BestGroupPrice, CabinPrice, Rate, getBestGroupPrices}
+import tst.RateGroup.{BestGroupPrice, CabinPrice, Rate, getBestGroupPrices}
 import org.scalatest._
 import flatspec._
 import matchers._
