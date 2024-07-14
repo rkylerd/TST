@@ -1,10 +1,28 @@
 package tst
 
 import cats.implicits.catsSyntaxSemigroup
-import tst.Promotion.allPromotionsAreCompat
 
 object Promotion {
 
+  def main(args: Array[String]): Unit = {
+
+    println("\n1. All combinable promotions")
+    println(allCombinablePromotions(inputProvidedByTstTeam))
+
+    println("\n2. Matches for P1")
+    println(combinablePromotions("P1", inputProvidedByTstTeam))
+
+    println("\n3. Matches for P3")
+    println(combinablePromotions("P3", inputProvidedByTstTeam))
+  }
+
+  val inputProvidedByTstTeam = Seq(
+    Promotion("P1", Seq("P3")), // P1 is not combinable with P3
+    Promotion("P2", Seq("P4", "P5")), // P2 is not combinable with P4 and P5
+    Promotion("P3", Seq("P1")), // P3 is not combinable with P1
+    Promotion("P4", Seq("P2")), // P4 is not combinable with P2
+    Promotion("P5", Seq("P2")) // P5 is not combinable with P2
+  )
 
   case class Promotion(
     code: String,
@@ -16,66 +34,89 @@ object Promotion {
   )
 
   object PromotionCombo {
-    def withLeadingCode(leader: String)(otherCodes: Seq[String]): PromotionCombo =
-      PromotionCombo((leader :: otherCodes.toList).sorted)
+
+    def withLeading(promotionCode: String)(otherCodes: Seq[String]): PromotionCombo =
+      PromotionCombo((promotionCode :: otherCodes.toList).sorted)
+
+    def appointLeader(promotionCode: String)(combo: PromotionCombo): PromotionCombo =
+      PromotionCombo(promotionCode +: combo.promotionCodes.filter(_ != promotionCode))
   }
 
   // Implement a function to find all PromotionCombos with maximum number of
   // combinable promotions in each. The function and case class definitions
   // are supplied below to get you started.
 
-  // find possible links
+  private def testCompatibilityBetweenPromotions(
+    promotionCode: String,
+    compatibilityMap: Map[String, Seq[String]]
+  )(
+    promotionCodes: Seq[String]
+  ): Boolean =
+    compatibilityMap
+      .get(promotionCode)
+      .exists(compatibleCodes =>
+        promotionCodes.forall(compatibleCodes.contains)
+      )
 
-  def allPromotionsAreCompat(currentCode: String, compatibilityMap: Map[String, Seq[String]])(promotionCodes: Seq[String]): Boolean =
-//    promotionCodes match {
-//    case Nil =>
-//      false
-//    case _last +: Nil =>
-//      true
-//    case head +: others =>
-      compatibilityMap
-        .get(currentCode)
-        .exists(compatibleCodes =>
-          promotionCodes.forall(compatibleCodes.contains)
-        )
-
-//  }
-
-  private def promotionCodeAndSizePriority(a: PromotionCombo, b: PromotionCombo) =
+  private def promotionCodeAndSizeOrdering(a: PromotionCombo, b: PromotionCombo): Boolean =
     (a.promotionCodes.size, b.promotionCodes.size, a.promotionCodes.head, b.promotionCodes.head) match {
       case (_, _, aHead, bHead) if aHead != bHead => aHead < bHead
       case (aSize, bSize, _, _) => aSize < bSize
     }
 
-  def getCombinablePromotionCodesFor(promotion: Promotion)(promotions: Seq[Promotion]): Seq[String] = {
-    def isIncompatible(other: Promotion): Boolean =
-      promotion.code == other.code ||
-        promotion.notCombinableWith.exists(_ == other.code)
+  private def allCombinableCodesFor(
+    promotion: Promotion
+  )(
+    promotions: Seq[Promotion]
+  ): Seq[String] = {
+    def combinableWith(other: Promotion): Boolean =
+        !(promotion.code +: promotion.notCombinableWith)
+          .contains(other.code)
 
     promotions
-      .filterNot(isIncompatible)
+      .filter(combinableWith)
       .map(_.code)
+  }
+
+  private def combinableCodesByPromotion(allPromotions: Seq[Promotion]): Map[String, Seq[String]] = {
+    val compatibilityMap = allPromotions.map(p => (
+      p.code,
+      allCombinableCodesFor(p)(allPromotions)
+    )).toMap
+
+    compatibilityMap.foreach {
+      case (promotionCode, combinablePromotionCodes) =>
+        combinablePromotionCodes
+          .find(code =>
+            !compatibilityMap
+              .getOrElse(code, List.empty)
+              .contains(promotionCode)
+          ) match {
+          case None => ()
+          case Some(misconfiguredCombinablePromotions) =>
+            throw new IllegalStateException(s"Bad promotion configuration: $promotionCode reported $misconfiguredCombinablePromotions as combinable but $misconfiguredCombinablePromotions reported $promotionCode as non-combinable. ")
+        }
+    }
+
+    compatibilityMap
   }
 
   def allCombinablePromotions(
      allPromotions: Seq[Promotion]
   ): Seq[PromotionCombo] = {
-    val compatibilityMap = allPromotions.map(p => (
-      p.code,
-      getCombinablePromotionCodesFor(p)(allPromotions)
-    )).toMap
+    val compatibilityMap = combinableCodesByPromotion(allPromotions)
 
-    def promotionCombosGivenCompatibility(
+    def buildPromotionCombosGivenCompatibility(
      head: String,
      rangeFrom: => Range,
-     sliceFrom: (Int) => Seq[String],
+     sliceFrom: Int => Seq[String],
      handleMissingSplitIdx: () => Option[Seq[Seq[String]]]
    ): Option[Seq[Seq[String]]] = {
-        val withAllCompatibleCodes = allPromotionsAreCompat(head, compatibilityMap) _
+        val testCompatibility = testCompatibilityBetweenPromotions(head, compatibilityMap) _
 
         rangeFrom
           .find(splitIdx =>
-            withAllCompatibleCodes(sliceFrom(splitIdx))
+            testCompatibility(sliceFrom(splitIdx))
           ) match {
           case Some(splitIdx) => Some(
             List(head +: sliceFrom(splitIdx))
@@ -90,32 +131,34 @@ object Promotion {
         None
       case only +: Nil =>
         Some(Seq(Seq(only)))
-      case head +: others => promotionCombosGivenCompatibility(
-        head = head,
-        rangeFrom = 0 to others.size - 1,
-        sliceFrom = (idx: Int) => others.drop(idx),
-        handleMissingSplitIdx = () => promotionCombosGivenCompatibility(
+      case head +: others =>
+        def tryCodesFromRight(): Option[Seq[Seq[String]]] = buildPromotionCombosGivenCompatibility(
           head = head,
-          rangeFrom = (others.size - 1 to 0 by -1),
+          rangeFrom = others.size - 1 to 0 by -1,
           handleMissingSplitIdx = () => None,
           sliceFrom = (idx: Int) => others.take(idx)
-        ) |+| combosFor(others),
-      )
-    }
+        ) |+| combosFor(others)
+
+        buildPromotionCombosGivenCompatibility(
+          head = head,
+          rangeFrom = others.indices,
+          sliceFrom = (idx: Int) => others.drop(idx),
+          handleMissingSplitIdx = tryCodesFromRight,
+        )
+      }
 
     val results = for {
-      x <- compatibilityMap
-      combos = combosFor(x._2)
+      (promotionCode, combinableCodes) <- compatibilityMap
+      combos = combosFor(combinableCodes)
       if combos.nonEmpty
-    } yield combos.get.map(PromotionCombo.withLeadingCode(x._1))
+    } yield
+      combos.get.map(PromotionCombo.withLeading(promotionCode))
 
       results
       .flatten
       .toSet
       .toList
-        .sortWith(promotionCodeAndSizePriority)
-        .toSeq
-
+        .sortWith(promotionCodeAndSizeOrdering)
 
   }
 
@@ -125,7 +168,21 @@ object Promotion {
   def combinablePromotions(
     promotionCode: String,
     allPromotions: Seq[Promotion]
-  ): Seq[PromotionCombo] = ???
+  ): Seq[PromotionCombo] = {
+    val compatibilityMap = combinableCodesByPromotion(allPromotions)
 
+    val maybeRelatedPromotionCodeSet = compatibilityMap
+      .get(promotionCode)
+      .map(compatibleCodes => (promotionCode +: compatibleCodes).toSet)
+
+    maybeRelatedPromotionCodeSet match {
+        case Some(relatedPromotionCodes) => allCombinablePromotions(
+          allPromotions
+            .filter(p => relatedPromotionCodes.contains(p.code))
+        ).map(PromotionCombo.appointLeader(promotionCode))
+
+        case _ => Seq.empty
+      }
+  }
 
 }

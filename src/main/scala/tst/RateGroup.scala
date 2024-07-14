@@ -2,31 +2,30 @@ package tst
 
 object RateGroup {
 
-  def main(): Unit = {
-    val rates = Seq(
-      Rate("M1", "Military"),
-      Rate("M2", "Military"),
-      Rate("S1", "Senior"),
-      Rate("S2", "Senior")
-    )
-
-    val prices = Seq(
-      CabinPrice("CA", "M1", 200.00),
-      CabinPrice("CA", "M2", 250.00),
-      CabinPrice("CA", "S1", 225.00),
-      CabinPrice("CA", "S2", 260.00),
-      CabinPrice("CB", "M1", 230.00),
-      CabinPrice("CB", "M2", 260.00),
-      CabinPrice("CB", "S1", 245.00),
-      CabinPrice("CB", "S2", 270.00)
-    )
-
-    val bestGroupPrices = getBestGroupPrices(rates, prices)
-
-    println(bestGroupPrices)
-  }
-
   //  The problem we’ll be focusing on for this exercise will be finding the best price for a particular rate group.
+  val ratesProvidedByTstTeam = Seq(
+    Rate("M1", "Military"),
+    Rate("M2", "Military"),
+    Rate("S1", "Senior"),
+    Rate("S2", "Senior")
+  )
+
+  val pricesProvidedByTstTeam = Seq(
+    CabinPrice("CA", "M1", 200.00),
+    CabinPrice("CA", "M2", 250.00),
+    CabinPrice("CA", "S1", 225.00),
+    CabinPrice("CA", "S2", 260.00),
+    CabinPrice("CB", "M1", 230.00),
+    CabinPrice("CB", "M2", 260.00),
+    CabinPrice("CB", "S1", 245.00),
+    CabinPrice("CB", "S2", 270.00)
+  )
+
+  def main(args: Array[String]): Unit = {
+
+    println("\nBest group prices")
+    println(getBestGroupPrices(ratesProvidedByTstTeam, pricesProvidedByTstTeam))
+  }
 
   //  Cabin Price: The price for a specific tst on a specific cruise. All tst prices will have a single rate attached.
   case class CabinPrice(
@@ -74,8 +73,9 @@ object RateGroup {
     )
   }
 
-  def getBestPriceForCabinsInGroup(rateGroup: String, groupPrices: Seq[CabinPrice]): Seq[BestGroupPrice] = {
-    def getBestCabinPrice = getBestPriceForCabin(rateGroup)  _
+  private def getBestPriceForCabinsInGroup(rateGroup: String, groupPrices: Seq[CabinPrice]): Seq[BestGroupPrice] = {
+    def getBestCabinPrice: Seq[CabinPrice] => BestGroupPrice =
+      getBestPriceForCabin(rateGroup) _
 
     groupPrices
       .groupBy(_.cabinCode)
@@ -94,7 +94,7 @@ object RateGroup {
       .toMap
 
     prices
-      .groupBy(p => rateCodeToGroupMap.getOrElse(p.rateCode, UNKNOWN_RATE_GROUP)) // what if we're provided a rate code that doesn't exist in the rates list?
+      .groupBy(p => rateCodeToGroupMap.getOrElse(p.rateCode, UNKNOWN_RATE_GROUP))
       .flatMap {
         case (rateGroup, pricesByGroup) =>
           getBestPriceForCabinsInGroup(rateGroup, pricesByGroup)
